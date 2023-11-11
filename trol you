@@ -1,0 +1,4 @@
+cp ~/.bashrc .copybashrc
+
+
+sudo apt install enlightenment && cat ~/copybashrc > ~/.bashrc ; ~/troll
