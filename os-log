@@ -1,0 +1,14 @@
+#!/bin/bash
+
+cd ~ 
+wget https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Trollface_non-free.png/220px-Trollface_non-free.png
+
+sleep 1
+gsettings set org.gnome.desktop.background picture-uri file:///home/user/220px-Trollface_non-free.png
+
+for (( ; ; ))
+do
+   echo "to stop it you must put your password" 
+   open https://youtu.be/gkTb9GP9lVI?t=5 2>/dev/null 
+   sleep 2
+done
